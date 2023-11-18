@@ -1,3 +1,17 @@
-<div *ngIf="apiLoaded | async">
-  <google-map width="100vw" height="100vh" [options]="options"></google-map>
+<google-map #map id="map" width="100vw" height="100vh" [options]="options" style="z-index: 1">
+  <map-marker #marker="mapMarker" *ngFor="let location of locations"
+              [position]="location.location"
+              [title]="location.name"
+              (mapMouseover)="openInfoWindow(marker)"
+              (mapMouseout)="closeInfoWindow()"></map-marker>
+  <map-info-window></map-info-window>
+
+  <map-directions-renderer *ngFor="let result of directionsResults" [directions]="result"></map-directions-renderer>
+</google-map>
+
+<div class="autocomplete">
+  <app-autocomplete (placeChanged)="setLocation($event)" style="width: 60%"></app-autocomplete>
+  <button mat-mini-fab color="accent" aria-label="Example icon button with a menu icon" (click)="requestRoute()">
+    <mat-icon>route</mat-icon>
+  </button>
 </div>
