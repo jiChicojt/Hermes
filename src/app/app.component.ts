@@ -96,7 +96,7 @@ export class AppComponent {
           }
         } else {
           const waypointName = this.getWaypointPlaceName(waypointsCombination[j][i - 1])
-          const temp = this.routes.map(route => route.name).filter(name => name === `${waypointName}-${waypointName1}`)
+          const temp = this.routes.map(route => route.name).filter(name => name === `${waypointName}->${waypointName1}`)
 
           if (temp.length === 0) {
             this.getDirections(<google.maps.LatLng> waypointsCombination[j][i - 1].location,
@@ -150,7 +150,7 @@ export class AppComponent {
       waypoints: wayPoints
     }
     let route: Route = {
-      name: `${from_name}-${to_name}`,
+      name: `${from_name}->${to_name}`,
       possibleEdges: []
     }
 
@@ -158,7 +158,7 @@ export class AppComponent {
       map(res => res.result?.routes)
     ).subscribe(routes => {
       if (routes) {
-        this.routeOptions.push({name: `${from_name}-${to_name}`, options: routes})
+        this.routeOptions.push({name: `${from_name}->${to_name}`, options: routes})
 
         routes.forEach((rt, index) => {
           let edge = [`${from_name}-${to_name}-${index}`, rt.legs[0].distance?.value, rt.legs[0].duration?.value, rt.legs[0].steps.length]
