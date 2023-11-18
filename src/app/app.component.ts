@@ -88,7 +88,7 @@ export class AppComponent {
         const locationName = this.locations[0].name
 
         if (i === 0) {
-          const temp = this.routes.map(route => route.name).filter(name => name === `${locationName}-${waypointName1}`)
+          const temp = this.routes.map(route => route.name).filter(name => name === `${locationName}->${waypointName1}`)
 
           if (temp.length === 0) {
             this.getDirections(<google.maps.LatLng> this.locations[0]?.location,
