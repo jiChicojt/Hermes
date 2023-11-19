@@ -3,7 +3,7 @@
   z-index: 10;
   top: 1vh;
   left: 1vw;
-  width: 50%;
+  width: 99vw;
 }
 
 button {
@@ -11,4 +11,9 @@ button {
   z-index: 10;
   top: 1vh;
   left: 31vw;
+}
+
+.show {
+  position: absolute;
+  right: 1vw;
 }

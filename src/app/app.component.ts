@@ -1,4 +1,4 @@
-import {Component, ViewChild} from '@angular/core';
+import {Component, OnInit, ViewChild} from '@angular/core';
 import {CommonModule} from '@angular/common';
 import {RouterOutlet} from '@angular/router';
 import {GoogleMap, GoogleMapsModule, MapDirectionsService, MapInfoWindow, MapMarker} from "@angular/google-maps";
@@ -9,6 +9,11 @@ import TravelMode = google.maps.TravelMode;
 import {MatIconModule} from "@angular/material/icon";
 import {map} from "rxjs";
 import {RouteService} from "./services/route.service";
+import {MatButtonToggleModule} from "@angular/material/button-toggle";
+import {FormControl, ReactiveFormsModule} from "@angular/forms";
+import {MatButtonModule} from "@angular/material/button";
+import {MatInputModule} from "@angular/material/input";
+import {MatFormFieldModule} from "@angular/material/form-field";
 
 export interface Route {
   name: string
@@ -30,13 +35,18 @@ interface RouteOptions {
     HttpClientModule,
     HttpClientJsonpModule,
     AutocompleteComponent,
-    MatIconModule
+    MatIconModule,
+    MatButtonToggleModule,
+    ReactiveFormsModule,
+    MatButtonModule,
+    MatInputModule,
+    MatFormFieldModule
   ],
   providers: [RouteService],
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.scss']
 })
-export class AppComponent {
+export class AppComponent implements OnInit{
   @ViewChild('map', {static: true}) map!: GoogleMap
   @ViewChild(MapInfoWindow) infoWindow!: MapInfoWindow
 
@@ -50,16 +60,53 @@ export class AppComponent {
   // Lista de lugares buscados
   locations: PlaceSearchResult[] = []
   // Resultados de la búsqueda de direcciones
-  directionsResults: google.maps.DirectionsResult[] = []
+  directionsResults!: google.maps.DirectionsResult
   // Posibles rutas a ser seleccionadas
   routeOptions: RouteOptions[] = []
 
   routes: Route[] = []
+  possiblePolylines: google.maps.Polyline[] = []
+  polylines: google.maps.Polyline[] = []
+  directionsRenderer: google.maps.DirectionsRenderer
+
+  linesControl = new FormControl(['possible', 'google', 'hermes']);
 
   constructor(
     private directionsService: MapDirectionsService,
     private routeService: RouteService
-  ) {}
+  ) {
+    this.directionsRenderer = new google.maps.DirectionsRenderer()
+  }
+
+  ngOnInit(): void {
+    this.linesControl.valueChanges.subscribe(value => {
+      if (value?.includes('possible')) {
+        this.possiblePolylines.forEach(polyline => {
+          polyline.setMap(<google.maps.Map> this.map.googleMap)
+        })
+      } else {
+        this.possiblePolylines.forEach(polyline => {
+          polyline.setMap(null)
+        })
+      }
+
+      if (value?.includes('hermes')) {
+        this.polylines.forEach(polyline => {
+          polyline.setMap(<google.maps.Map> this.map.googleMap)
+        })
+      } else {
+        this.polylines.forEach(polyline => {
+          polyline.setMap(null)
+        })
+      }
+
+      if (value?.includes('google')) {
+        this.directionsRenderer.setMap(<google.maps.Map> this.map.googleMap)
+      } else {
+        this.directionsRenderer.setMap(null)
+      }
+    })
+  }
 
   setLocation(event: PlaceSearchResult | undefined) {
     const newLocation = event
@@ -107,19 +154,59 @@ export class AppComponent {
       }
     }
 
+    this.fitBounds(this.possiblePolylines)
+
     this.routeService.optimizeRoutes(this.routes, <string> this.locations[0].name).subscribe(res => {
-      console.log(res)
+      const edges = res.routes.map((route: string) => {
+        const subs = route.split('->')
+        return `${subs[0]}->${subs[1]}`
+      })
+
+      const routes = this.routeOptions.filter(route => edges.includes(route.name))
+
+      for (const route of routes) {
+        for (const edge of res.routes) {
+          if (edge.includes(route.name)) {
+            const index = Number(edge.split('->')[2])
+
+            const polyline: google.maps.Polyline = new google.maps.Polyline({
+              path: route.options[index].overview_path,
+              map: this.map.googleMap,
+              visible: true,
+              strokeColor: '#2ce86e',
+              strokeWeight: 5,
+              strokeOpacity: 0.75,
+              zIndex: 10
+            })
+            this.polylines.push(polyline)
+          }
+        }
+      }
+
+      this.fitBounds(this.polylines)
     })
 
-    // waypointsCombination.forEach(combination => {
-    //   if (this.locations[0]?.location) {
-    //     this.getDirections(
-    //       this.locations[0]?.location,
-    //       <google.maps.LatLng> combination.slice(-1, combination.length)[0].location,
-    //       combination.slice(0, -1)
-    //     )
-    //   }
-    // })
+    waypointsCombination.forEach(combination => {
+      if (this.locations[0]?.location) {
+        this.getDirections(
+          this.locations[0]?.location,
+          <google.maps.LatLng> combination.slice(-1, combination.length)[0].location, '', '',
+          combination.slice(0, -1)
+        )
+      }
+    })
+  }
+
+  fitBounds(lines: google.maps.Polyline[]) {
+    const bounds = new google.maps.LatLngBounds()
+
+    for (const polyline of lines) {
+      for (let i = 0; i < polyline.getPath().getLength(); i++) {
+        bounds.extend(polyline.getPath().getAt(i))
+      }
+    }
+
+    this.map.fitBounds(bounds)
   }
 
   getWaypointPlaceName(waypoint: google.maps.DirectionsWaypoint): string | undefined {
@@ -147,37 +234,53 @@ export class AppComponent {
       travelMode: TravelMode.DRIVING,
       unitSystem: google.maps.UnitSystem.METRIC,
       provideRouteAlternatives: true,
-      waypoints: wayPoints
-    }
-    let route: Route = {
-      name: `${from_name}->${to_name}`,
-      possibleEdges: []
+      waypoints: wayPoints,
+      optimizeWaypoints: true
     }
 
-    this.directionsService.route(request).pipe(
-      map(res => res.result?.routes)
-    ).subscribe(routes => {
-      if (routes) {
-        this.routeOptions.push({name: `${from_name}->${to_name}`, options: routes})
-
-        routes.forEach((rt, index) => {
-          let edge = [`${from_name}-${to_name}-${index}`, rt.legs[0].distance?.value, rt.legs[0].duration?.value, rt.legs[0].steps.length]
-
-          route.possibleEdges.push(edge)
-
-          const polyline: google.maps.Polyline = new google.maps.Polyline({
-            path: rt.overview_path,
-            map: this.map.googleMap,
-            visible: true,
-            strokeColor: `#${this.getRandomColor()}`,
-            strokeWeight: 3
-          })
-        })
+    if (wayPoints.length === 0) {
+      let route: Route = {
+        name: `${from_name}->${to_name}`,
+        possibleEdges: []
       }
-    })
 
-    this.routes.push(route)
+      this.directionsService.route(request).pipe(
+        map(res => res.result?.routes)
+      ).subscribe(routes => {
+        if (routes) {
+          this.routeOptions.push({name: `${from_name}->${to_name}`, options: routes})
 
+          routes.forEach((rt, index) => {
+            let edge = [`${from_name}->${to_name}->${index}`, rt.legs[0].distance?.value, rt.legs[0].duration?.value, rt.legs[0].steps.length]
+
+            route.possibleEdges.push(edge)
+
+            const polyline: google.maps.Polyline = new google.maps.Polyline({
+              path: rt.overview_path,
+              map: this.map.googleMap,
+              visible: true,
+              strokeColor: `#${this.getRandomColor()}`,
+              strokeWeight: 3,
+              strokeOpacity: 0.75,
+              zIndex: -1
+            })
+
+            this.possiblePolylines.push(polyline)
+          })
+        }
+      })
+
+      this.routes.push(route)
+    } else {
+      this.directionsService.route(request).pipe(
+        map(res => res.result)
+      ).subscribe(res => {
+        if (res) {
+          this.directionsRenderer.setDirections(res)
+          this.directionsRenderer.setMap(<google.maps.Map> this.map.googleMap)
+        }
+      })
+    }
   }
 
   getRandomColor(): string {

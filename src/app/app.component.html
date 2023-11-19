@@ -5,13 +5,16 @@
               (mapMouseover)="openInfoWindow(marker)"
               (mapMouseout)="closeInfoWindow()"></map-marker>
   <map-info-window></map-info-window>
-
-  <map-directions-renderer *ngFor="let result of directionsResults" [directions]="result"></map-directions-renderer>
 </google-map>
 
 <div class="autocomplete">
-  <app-autocomplete (placeChanged)="setLocation($event)" style="width: 60%"></app-autocomplete>
+  <app-autocomplete (placeChanged)="setLocation($event)" style="width: 30%"></app-autocomplete>
   <button mat-mini-fab color="accent" aria-label="Example icon button with a menu icon" (click)="requestRoute()">
     <mat-icon>route</mat-icon>
   </button>
+  <mat-button-toggle-group class="show" [formControl]="linesControl" name="ingredients" aria-label="Ingredients" multiple>
+    <mat-button-toggle value="possible"><mat-icon>alt_route</mat-icon></mat-button-toggle>
+    <mat-button-toggle value="google"><mat-icon>map</mat-icon></mat-button-toggle>
+    <mat-button-toggle value="hermes"><mat-icon>whatshot</mat-icon></mat-button-toggle>
+  </mat-button-toggle-group>
 </div>
